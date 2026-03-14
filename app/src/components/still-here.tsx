@@ -181,20 +181,16 @@ export default function StillHere() {
               </>
             )}
 
-            {stats && (
-              <div className="mx-auto mt-10 max-w-lg">
-                <div className="h-1.5 overflow-hidden rounded-full bg-stone-200/80">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400 transition-all duration-1000 ease-out"
-                    style={{ width: `${stats.progress}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-xs tabular-nums text-stone-400">
-                  {stats.progress.toFixed(1)}% of estimated lifetime
-                </p>
-              </div>
-            )}
           </header>
+
+          {/* ============ LIFE GRID ============ */}
+          {stats && (
+            <LifeGrid
+              daysAlive={stats.daysAlive}
+              totalDays={stats.totalDays}
+              progress={stats.progress}
+            />
+          )}
 
           {/* ============ STATS GRID ============ */}
           {stats && (
@@ -409,5 +405,81 @@ function Row({ k, v }: { k: string; v: string }) {
       <span className="text-stone-400">{k}:</span>{" "}
       <span className="font-medium">{v}</span>
     </p>
+  );
+}
+
+function LifeGrid({
+  daysAlive,
+  totalDays,
+  progress,
+}: {
+  daysAlive: number;
+  totalDays: number;
+  progress: number;
+}) {
+  const weeksLived = Math.floor(daysAlive / 7);
+  const totalWeeks = Math.ceil(totalDays / 7);
+  const cols = 52;
+  const rows = Math.ceil(totalWeeks / cols);
+
+  return (
+    <div className="mt-12">
+      <div className="flex justify-center overflow-x-auto">
+        <div className="inline-flex flex-col gap-[1px] sm:gap-[2px]">
+          {Array.from({ length: rows }, (_, row) => {
+            const showLabel = row % 10 === 0;
+            return (
+              <div key={row} className="flex items-center">
+                <span
+                  className={`w-5 pr-1 text-right font-mono text-[8px] tabular-nums sm:w-6 sm:text-[9px] ${
+                    showLabel ? "text-stone-400" : "text-transparent select-none"
+                  }`}
+                >
+                  {row}
+                </span>
+                <div className="flex gap-[1px] sm:gap-[2px]">
+                  {Array.from(
+                    { length: Math.min(cols, totalWeeks - row * cols) },
+                    (_, col) => {
+                      const idx = row * cols + col;
+                      const lived = idx < weeksLived;
+                      const current = idx === weeksLived;
+                      return (
+                        <div
+                          key={col}
+                          className={`h-[4px] w-[4px] rounded-[0.5px] sm:h-[6px] sm:w-[6px] sm:rounded-[1px] transition-colors ${
+                            lived
+                              ? "bg-amber-400"
+                              : current
+                                ? "bg-orange-500"
+                                : "bg-stone-200"
+                          }`}
+                        />
+                      );
+                    },
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-[10px] text-stone-400">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2 w-2 rounded-[1px] bg-amber-400" />
+          weeks lived
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2 w-2 rounded-[1px] bg-orange-500" />
+          this week
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2 w-2 rounded-[1px] bg-stone-200" />
+          remaining
+        </span>
+        <span className="tabular-nums">{progress.toFixed(1)}%</span>
+      </div>
+    </div>
   );
 }
