@@ -164,10 +164,10 @@ export default function StillHere() {
             {stats ? (
               <>
                 <h1 className="mt-5 text-7xl font-bold tabular-nums tracking-tight text-stone-900 sm:text-9xl">
-                  {fmt(stats.daysAlive)}
+                  {fmt(stats.daysRemaining)}
                 </h1>
                 <p className="mt-2 text-base text-stone-500">
-                  days alive&ensp;&middot;&ensp;{stats.todayLabel}
+                  days remaining&ensp;&middot;&ensp;{stats.todayLabel}
                 </p>
               </>
             ) : (
