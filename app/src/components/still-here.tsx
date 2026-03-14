@@ -438,7 +438,7 @@ function LifeGrid({
               >
                 {row}
               </span>
-              <div className="flex flex-1 gap-[2px]">
+              <div className="flex flex-1 justify-between">
                 {Array.from({ length: cellCount }, (_, col) => {
                   const idx = row * cols + col;
                   const lived = idx < weeksLived;
@@ -446,7 +446,7 @@ function LifeGrid({
                   return (
                     <div
                       key={col}
-                      className={`h-[5px] flex-1 rounded-[1px] sm:h-[6px] ${
+                      className={`aspect-square w-full max-w-[6px] rounded-full sm:max-w-[8px] ${
                         lived
                           ? "bg-amber-400"
                           : current
@@ -464,15 +464,15 @@ function LifeGrid({
 
       <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-[10px] text-stone-400">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2 w-2 rounded-[1px] bg-amber-400" />
+          <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
           weeks lived
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2 w-2 rounded-[1px] bg-orange-500" />
+          <span className="inline-block h-2 w-2 rounded-full bg-orange-500" />
           this week
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2 w-2 rounded-[1px] bg-stone-200" />
+          <span className="inline-block h-2 w-2 rounded-full bg-stone-200" />
           remaining
         </span>
         <span className="tabular-nums">{progress.toFixed(1)}%</span>
