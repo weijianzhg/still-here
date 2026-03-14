@@ -154,44 +154,45 @@ export default function StillHere() {
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-gradient-to-b from-stone-50 via-orange-50/30 to-stone-100">
-        <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
-          {/* ============ HERO ============ */}
-          <header className="text-center">
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-stone-400">
-              Still Here
-            </p>
+        {/* ============ HERO ============ */}
+        <header className="mx-auto max-w-4xl px-4 pt-16 text-center sm:px-6 lg:px-8">
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-stone-400">
+            Still Here
+          </p>
 
-            {stats ? (
-              <>
-                <h1 className="mt-5 text-7xl font-bold tabular-nums tracking-tight text-stone-900 sm:text-9xl">
-                  {fmt(stats.daysRemaining)}
-                </h1>
-                <p className="mt-2 text-base text-stone-500">
-                  days remaining&ensp;&middot;&ensp;{stats.todayLabel}
-                </p>
-              </>
-            ) : (
-              <>
-                <h1 className="mt-6 text-5xl font-bold tracking-tight text-stone-800 sm:text-7xl">
-                  Hello
-                </h1>
-                <p className="mx-auto mt-3 max-w-md text-lg leading-relaxed text-stone-500">
-                  Enter your birth date to start counting your days.
-                </p>
-              </>
-            )}
+          {stats ? (
+            <>
+              <h1 className="mt-5 text-7xl font-bold tabular-nums tracking-tight text-stone-900 sm:text-9xl">
+                {fmt(stats.daysRemaining)}
+              </h1>
+              <p className="mt-2 text-base text-stone-500">
+                days remaining&ensp;&middot;&ensp;{stats.todayLabel}
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="mt-6 text-5xl font-bold tracking-tight text-stone-800 sm:text-7xl">
+                Hello
+              </h1>
+              <p className="mx-auto mt-3 max-w-md text-lg leading-relaxed text-stone-500">
+                Enter your birth date to start counting your days.
+              </p>
+            </>
+          )}
+        </header>
 
-          </header>
-
-          {/* ============ LIFE GRID ============ */}
-          {stats && (
+        {/* ============ LIFE GRID (wider container) ============ */}
+        {stats && (
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <LifeGrid
               daysAlive={stats.daysAlive}
               totalDays={stats.totalDays}
               progress={stats.progress}
             />
-          )}
+          </div>
+        )}
 
+        <div className="mx-auto max-w-4xl px-4 pb-16 sm:px-6 lg:px-8">
           {/* ============ STATS GRID ============ */}
           {stats && (
             <div className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
@@ -424,45 +425,41 @@ function LifeGrid({
 
   return (
     <div className="mt-12">
-      <div className="flex justify-center overflow-x-auto">
-        <div className="inline-flex flex-col gap-[1px] sm:gap-[2px]">
-          {Array.from({ length: rows }, (_, row) => {
-            const showLabel = row % 10 === 0;
-            return (
-              <div key={row} className="flex items-center">
-                <span
-                  className={`w-5 pr-1 text-right font-mono text-[8px] tabular-nums sm:w-6 sm:text-[9px] ${
-                    showLabel ? "text-stone-400" : "text-transparent select-none"
-                  }`}
-                >
-                  {row}
-                </span>
-                <div className="flex gap-[1px] sm:gap-[2px]">
-                  {Array.from(
-                    { length: Math.min(cols, totalWeeks - row * cols) },
-                    (_, col) => {
-                      const idx = row * cols + col;
-                      const lived = idx < weeksLived;
-                      const current = idx === weeksLived;
-                      return (
-                        <div
-                          key={col}
-                          className={`h-[4px] w-[4px] rounded-[0.5px] sm:h-[6px] sm:w-[6px] sm:rounded-[1px] transition-colors ${
-                            lived
-                              ? "bg-amber-400"
-                              : current
-                                ? "bg-orange-500"
-                                : "bg-stone-200"
-                          }`}
-                        />
-                      );
-                    },
-                  )}
-                </div>
+      <div className="space-y-[2px]">
+        {Array.from({ length: rows }, (_, row) => {
+          const showLabel = row % 10 === 0;
+          const cellCount = Math.min(cols, totalWeeks - row * cols);
+          return (
+            <div key={row} className="flex items-center gap-[2px]">
+              <span
+                className={`w-5 shrink-0 pr-1 text-right font-mono text-[8px] tabular-nums sm:w-6 sm:text-[9px] ${
+                  showLabel ? "text-stone-400" : "text-transparent select-none"
+                }`}
+              >
+                {row}
+              </span>
+              <div className="flex flex-1 gap-[2px]">
+                {Array.from({ length: cellCount }, (_, col) => {
+                  const idx = row * cols + col;
+                  const lived = idx < weeksLived;
+                  const current = idx === weeksLived;
+                  return (
+                    <div
+                      key={col}
+                      className={`h-[5px] flex-1 rounded-[1px] sm:h-[6px] ${
+                        lived
+                          ? "bg-amber-400"
+                          : current
+                            ? "bg-orange-500"
+                            : "bg-stone-200"
+                      }`}
+                    />
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-[10px] text-stone-400">
