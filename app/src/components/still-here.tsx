@@ -335,7 +335,7 @@ function LifeGrid({ daysAlive, totalDays }: { daysAlive: number; totalDays: numb
       </div>
       <div className="mt-2 flex justify-between text-[10px] text-stone-400">
         <span>birth</span>
-        <span className="tabular-nums">{weeksLived.toLocaleString()} of {totalWeeks.toLocaleString()} weeks</span>
+        <span className="tabular-nums">{((weeksLived / totalWeeks) * 100).toFixed(1)}% lived</span>
         <span>end</span>
       </div>
     </div>
