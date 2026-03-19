@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useId, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +57,229 @@ function fmt(n: number): string {
   return new Intl.NumberFormat().format(n);
 }
 
+/** Returns YYYY-MM-DD or null if incomplete / invalid calendar date. */
+function isoFromParts(y: string, m: string, d: string): string | null {
+  if (y.length !== 4 || !/^\d{4}$/.test(y)) return null;
+  if (!m || !d) return null;
+  const yi = parseInt(y, 10);
+  const mi = parseInt(m, 10);
+  const di = parseInt(d, 10);
+  if (isNaN(mi) || mi < 1 || mi > 12) return null;
+  if (isNaN(di) || di < 1 || di > 31) return null;
+  const dt = new Date(yi, mi - 1, di);
+  if (dt.getFullYear() !== yi || dt.getMonth() !== mi - 1 || dt.getDate() !== di) return null;
+  return `${y}-${String(mi).padStart(2, "0")}-${String(di).padStart(2, "0")}`;
+}
+
+function parseIsoToParts(s: string): { y: string; m: string; d: string } {
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return { y: "", m: "", d: "" };
+  const [y, m, d] = s.split("-");
+  return { y: y ?? "", m: m ?? "", d: d ?? "" };
+}
+
+/** Short beat after the date is complete before committing (main UI transition). */
+const BIRTHDATE_COMMIT_DELAY_MS = 420;
+
+function BirthDateFields({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (iso: string) => void;
+}) {
+  const baseId = useId();
+  const ids = {
+    y: `${baseId}-y`,
+    m: `${baseId}-m`,
+    d: `${baseId}-d`,
+  };
+
+  const [y, setY] = useState(() => parseIsoToParts(value).y);
+  const [m, setM] = useState(() => parseIsoToParts(value).m);
+  const [d, setD] = useState(() => parseIsoToParts(value).d);
+
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
+    const p = parseIsoToParts(value);
+    setY(p.y);
+    setM(p.m);
+    setD(p.d);
+  }
+
+  const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearCommitTimer = useCallback(() => {
+    if (commitTimerRef.current) {
+      clearTimeout(commitTimerRef.current);
+      commitTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => clearCommitTimer(), [clearCommitTimer]);
+
+  const flushCommit = useCallback(
+    (sy: string, sm: string, sd: string) => {
+      clearCommitTimer();
+      const y0 = sy.trim();
+      const m0 = sm.trim();
+      const d0 = sd.trim();
+      if (!y0 && !m0 && !d0) {
+        onChange("");
+        return;
+      }
+      const iso = isoFromParts(y0, m0, d0);
+      if (iso) onChange(iso);
+    },
+    [onChange, clearCommitTimer],
+  );
+
+  const maybeCommit = useCallback(
+    (ny: string, nm: string, nd: string) => {
+      const sy = ny.trim();
+      const sm = nm.trim();
+      const sd = nd.trim();
+      if (!sy && !sm && !sd) {
+        clearCommitTimer();
+        onChange("");
+        return;
+      }
+      const iso = isoFromParts(sy, sm, sd);
+      if (iso) {
+        clearCommitTimer();
+        commitTimerRef.current = setTimeout(() => {
+          commitTimerRef.current = null;
+          onChange(iso);
+        }, BIRTHDATE_COMMIT_DELAY_MS);
+      } else {
+        clearCommitTimer();
+      }
+    },
+    [onChange, clearCommitTimer],
+  );
+
+  const padMonth = (s: string) => {
+    const n = parseInt(s, 10);
+    if (isNaN(n) || n < 1 || n > 12) return s;
+    return String(n).padStart(2, "0");
+  };
+
+  const padDay = (s: string) => {
+    const n = parseInt(s, 10);
+    if (isNaN(n) || n < 1 || n > 31) return s;
+    return String(n).padStart(2, "0");
+  };
+
+  const invalid =
+    !!(y || m || d) &&
+    y.length === 4 &&
+    m.length > 0 &&
+    d.length > 0 &&
+    !isoFromParts(y.trim(), m.trim(), d.trim());
+
+  const digitField = (raw: string, maxLen: number) => raw.replace(/\D/g, "").slice(0, maxLen);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="min-w-0 flex-1 space-y-1">
+          <Input
+            id={ids.y}
+            inputMode="numeric"
+            autoComplete="bday-year"
+            placeholder="YYYY"
+            value={y}
+            onChange={(e) => {
+              const next = digitField(e.target.value, 4);
+              setY(next);
+              maybeCommit(next, m, d);
+              if (next.length === 4) document.getElementById(ids.m)?.focus();
+            }}
+            onBlur={() => {
+              const py = y.trim();
+              if (py.length > 0 && py.length < 4) return;
+              if (py.length === 4) {
+                flushCommit(py, m, d);
+              }
+            }}
+            onPaste={(e) => {
+              const text = e.clipboardData.getData("text").trim();
+              const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+              if (match) {
+                e.preventDefault();
+                const [, py, pm, pd] = match;
+                setY(py);
+                setM(pm);
+                setD(pd);
+                maybeCommit(py, pm, pd);
+              }
+            }}
+            aria-invalid={invalid}
+            className="rounded-xl text-center tabular-nums tracking-wide"
+          />
+          <p className="text-center text-[0.65rem] text-stone-400">Year</p>
+        </div>
+        <span className="pb-5 text-stone-300 select-none" aria-hidden>
+          /
+        </span>
+        <div className="min-w-0 flex-1 space-y-1">
+          <Input
+            id={ids.m}
+            inputMode="numeric"
+            autoComplete="bday-month"
+            placeholder="MM"
+            value={m}
+            onChange={(e) => {
+              const next = digitField(e.target.value, 2);
+              setM(next);
+              maybeCommit(y, next, d);
+              if (next.length === 2) document.getElementById(ids.d)?.focus();
+            }}
+            onBlur={() => {
+              const pm = padMonth(m.trim());
+              if (pm !== m) setM(pm);
+              flushCommit(y, pm, d);
+            }}
+            aria-invalid={invalid}
+            className="rounded-xl text-center tabular-nums tracking-wide"
+          />
+          <p className="text-center text-[0.65rem] text-stone-400">Month</p>
+        </div>
+        <span className="pb-5 text-stone-300 select-none" aria-hidden>
+          /
+        </span>
+        <div className="min-w-0 flex-1 space-y-1">
+          <Input
+            id={ids.d}
+            inputMode="numeric"
+            autoComplete="bday-day"
+            placeholder="DD"
+            value={d}
+            onChange={(e) => {
+              const next = digitField(e.target.value, 2);
+              setD(next);
+              maybeCommit(y, m, next);
+            }}
+            onBlur={() => {
+              const pd = padDay(d.trim());
+              if (pd !== d) setD(pd);
+              flushCommit(y, m, pd);
+            }}
+            aria-invalid={invalid}
+            className="rounded-xl text-center tabular-nums tracking-wide"
+          />
+          <p className="text-center text-[0.65rem] text-stone-400">Day</p>
+        </div>
+      </div>
+      <p className="text-xs text-stone-400">
+        <span className="tabular-nums">YYYY–MM–DD</span>
+        <span className="text-stone-300"> · </span>
+        Tab between fields
+      </p>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 
 export default function StillHere() {
@@ -68,11 +291,11 @@ export default function StillHere() {
   useEffect(() => {
     try {
       const s = localStorage.getItem(STORAGE_KEY);
-      if (s) setSettings(JSON.parse(s));
+      if (s) queueMicrotask(() => setSettings(JSON.parse(s)));
     } catch {
       /* corrupt data – use defaults */
     }
-    setMounted(true);
+    queueMicrotask(() => setMounted(true));
   }, []);
 
   /* ---- persist ---- */
@@ -213,12 +436,7 @@ function SettingsCard({
   return (
     <div className="space-y-5">
       <Field label="Birth date">
-        <Input
-          type="date"
-          value={settings.birthdate}
-          onChange={(e) => set("birthdate", e.target.value)}
-          className="rounded-xl"
-        />
+        <BirthDateFields value={settings.birthdate} onChange={(iso) => set("birthdate", iso)} />
       </Field>
 
       <Field label="Region">
