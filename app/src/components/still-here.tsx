@@ -53,6 +53,18 @@ const DEFAULT_SETTINGS: Settings = {
   ageAdjusted: true,
 };
 
+function settingsWithGeoSuggestion(suggestedRegionId?: string | null): Settings {
+  const next = { ...DEFAULT_SETTINGS };
+  if (
+    suggestedRegionId &&
+    suggestedRegionId !== "custom" &&
+    getRegionById(suggestedRegionId)
+  ) {
+    next.regionId = suggestedRegionId;
+  }
+  return next;
+}
+
 function fmt(n: number): string {
   return new Intl.NumberFormat().format(n);
 }
@@ -282,8 +294,14 @@ function BirthDateFields({
 
 // ---------------------------------------------------------------------------
 
-export default function StillHere() {
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+export default function StillHere({
+  suggestedRegionId,
+}: {
+  suggestedRegionId?: string | null;
+} = {}) {
+  const [settings, setSettings] = useState<Settings>(() =>
+    settingsWithGeoSuggestion(suggestedRegionId),
+  );
   const [showSettings, setShowSettings] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -441,16 +459,24 @@ function SettingsCard({
 
       <Field label="Region">
         <Select value={settings.regionId} onValueChange={(v) => v && set("regionId", v)}>
-          <SelectTrigger className="rounded-xl">
-            <SelectValue />
+          <SelectTrigger
+            className="h-11 w-full min-w-0 justify-between gap-3 rounded-xl border-stone-200 bg-white px-4 py-2 text-left text-sm font-medium text-stone-800 shadow-sm hover:bg-stone-50/80 data-placeholder:text-stone-400 [&_svg]:shrink-0 [&_svg]:text-stone-400"
+          >
+            <SelectValue placeholder="Choose region" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent
+            align="start"
+            alignItemWithTrigger={false}
+            side="bottom"
+            sideOffset={6}
+            className="max-h-[min(17rem,50dvh)] rounded-xl border-stone-200 bg-white p-1 shadow-lg ring-1 ring-stone-900/5"
+          >
             {regions.map((r) => (
-              <SelectItem key={r.id} value={r.id}>
-                {r.name}
-                {r.lifeExpectancy > 0 && (
-                  <span className="ml-1 text-muted-foreground">{r.lifeExpectancy}y</span>
-                )}
+              <SelectItem key={r.id} value={r.id} className="rounded-lg py-2.5 pl-3">
+                <span className="min-w-0 flex-1 truncate text-stone-800">{r.name}</span>
+                {r.lifeExpectancy > 0 ? (
+                  <span className="shrink-0 tabular-nums text-xs text-stone-400">{r.lifeExpectancy} yr</span>
+                ) : null}
               </SelectItem>
             ))}
           </SelectContent>
