@@ -34,6 +34,10 @@ import {
 } from "lucide-react";
 import { regions, getRegionById } from "@/lib/life-data";
 import { calculateLifeStats } from "@/lib/calculator";
+import Goals from "@/components/goals";
+import UserMenu from "@/components/user-menu";
+import { useAuth } from "@/components/auth-provider";
+import { createClient } from "@/lib/supabase/client";
 
 // ---------------------------------------------------------------------------
 
@@ -299,6 +303,7 @@ export default function StillHere({
 }: {
   suggestedRegionId?: string | null;
 } = {}) {
+  const { user } = useAuth();
   const [settings, setSettings] = useState<Settings>(() =>
     settingsWithGeoSuggestion(suggestedRegionId),
   );
@@ -316,10 +321,51 @@ export default function StillHere({
     queueMicrotask(() => setMounted(true));
   }, []);
 
-  /* ---- persist ---- */
+  /* ---- fetch settings from Supabase when logged in ---- */
   useEffect(() => {
-    if (mounted) localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  }, [settings, mounted]);
+    if (!user) return;
+    const supabase = createClient();
+    supabase
+      .from("user_settings")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          const remote: Settings = {
+            birthdate: data.birthdate ?? "",
+            regionId: data.region_id ?? "world",
+            customLifeExpectancy: data.custom_life_expectancy ?? "73",
+            ageAdjusted: data.age_adjusted ?? true,
+          };
+          setSettings(remote);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+        }
+      });
+  }, [user]);
+
+  /* ---- persist locally + to Supabase ---- */
+  useEffect(() => {
+    if (!mounted) return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    if (user) {
+      const supabase = createClient();
+      supabase
+        .from("user_settings")
+        .upsert(
+          {
+            user_id: user.id,
+            birthdate: settings.birthdate,
+            region_id: settings.regionId,
+            custom_life_expectancy: settings.customLifeExpectancy,
+            age_adjusted: settings.ageAdjusted,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" },
+        )
+        .then(() => {});
+    }
+  }, [settings, mounted, user]);
 
   /* ---- derived ---- */
   const lifeExpectancy = useMemo(() => {
@@ -353,17 +399,18 @@ export default function StillHere({
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-gradient-to-b from-stone-50 via-orange-50/30 to-stone-100">
-        {/* ============ TOP RIGHT SETTINGS ============ */}
-        {stats && (
-          <div className="absolute top-4 right-4">
+        {/* ============ TOP RIGHT NAV ============ */}
+        <div className="absolute top-4 right-4 flex items-center gap-3">
+          <UserMenu />
+          {stats && (
             <button
               onClick={() => setShowSettings((v) => !v)}
               className="flex items-center gap-1.5 text-xs text-stone-400 hover:text-stone-600 transition-colors"
             >
               <Settings className="h-4 w-4" />
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* ============ HERO ============ */}
         <header className="mx-auto max-w-4xl px-4 pt-16 text-center sm:px-6 lg:px-8">
@@ -424,6 +471,9 @@ export default function StillHere({
               <SettingsCard settings={settings} stats={stats} set={set} />
             </DialogContent>
           </Dialog>
+
+          {/* ============ GOALS ============ */}
+          {stats && <Goals />}
 
           {/* ============ FOOTER ============ */}
           <footer className="mt-20 text-center">
