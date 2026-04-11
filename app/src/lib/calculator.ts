@@ -10,11 +10,22 @@ export interface LifeStats {
   todayLabel: string;
 }
 
+export interface GoalProgressStats {
+  totalGoalDays: number;
+  elapsedGoalDays: number;
+  remainingGoalDays: number;
+  progressPct: number;
+}
+
 function daysBetween(start: Date, end: Date): number {
   const msPerDay = 86_400_000;
   const utcStart = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
   const utcEnd = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
   return Math.floor((utcEnd - utcStart) / msPerDay);
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
 }
 
 /**
@@ -70,5 +81,27 @@ export function calculateLifeStats(
       month: "long",
       day: "numeric",
     }),
+  };
+}
+
+export function calculateGoalProgress(
+  startDate: Date,
+  endDate: Date,
+  today: Date = new Date(),
+): GoalProgressStats | null {
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return null;
+  if (daysBetween(startDate, endDate) < 0) return null;
+
+  const totalGoalDays = daysBetween(startDate, endDate) + 1;
+  const elapsedSinceStart = daysBetween(startDate, today) + 1;
+  const elapsedGoalDays = clamp(elapsedSinceStart, 0, totalGoalDays);
+  const remainingGoalDays = totalGoalDays - elapsedGoalDays;
+  const progressPct = (elapsedGoalDays / totalGoalDays) * 100;
+
+  return {
+    totalGoalDays,
+    elapsedGoalDays,
+    remainingGoalDays,
+    progressPct,
   };
 }

@@ -30,10 +30,11 @@ import {
   Clock,
   Info,
   Heart,
+  Flag,
   Settings,
 } from "lucide-react";
 import { regions, getRegionById } from "@/lib/life-data";
-import { calculateLifeStats } from "@/lib/calculator";
+import { calculateGoalProgress, calculateLifeStats } from "@/lib/calculator";
 
 // ---------------------------------------------------------------------------
 
@@ -42,6 +43,9 @@ interface Settings {
   regionId: string;
   customLifeExpectancy: string;
   ageAdjusted: boolean;
+  goalTitle: string;
+  goalStartDate: string;
+  goalEndDate: string;
 }
 
 const STORAGE_KEY = "still-here-settings";
@@ -51,6 +55,9 @@ const DEFAULT_SETTINGS: Settings = {
   regionId: "world",
   customLifeExpectancy: "73",
   ageAdjusted: true,
+  goalTitle: "",
+  goalStartDate: todayIsoDate(),
+  goalEndDate: "",
 };
 
 function settingsWithGeoSuggestion(suggestedRegionId?: string | null): Settings {
@@ -67,6 +74,14 @@ function settingsWithGeoSuggestion(suggestedRegionId?: string | null): Settings 
 
 function fmt(n: number): string {
   return new Intl.NumberFormat().format(n);
+}
+
+function todayIsoDate(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 /** Returns YYYY-MM-DD or null if incomplete / invalid calendar date. */
@@ -87,6 +102,13 @@ function parseIsoToParts(s: string): { y: string; m: string; d: string } {
   if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return { y: "", m: "", d: "" };
   const [y, m, d] = s.split("-");
   return { y: y ?? "", m: m ?? "", d: d ?? "" };
+}
+
+function parseIsoDate(s: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(`${s}T00:00:00`);
+  if (isNaN(d.getTime())) return null;
+  return d;
 }
 
 /** Short beat after the date is complete before committing (main UI transition). */
@@ -302,6 +324,7 @@ export default function StillHere({
   const [settings, setSettings] = useState<Settings>(() =>
     settingsWithGeoSuggestion(suggestedRegionId),
   );
+  const [showGoalSetup, setShowGoalSetup] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -309,7 +332,18 @@ export default function StillHere({
   useEffect(() => {
     try {
       const s = localStorage.getItem(STORAGE_KEY);
-      if (s) queueMicrotask(() => setSettings(JSON.parse(s)));
+      if (s) {
+        const parsed = JSON.parse(s) as Partial<Settings>;
+        queueMicrotask(() =>
+          setSettings((prev) => {
+            const merged = { ...prev, ...parsed };
+            if (!parseIsoDate(merged.goalStartDate)) {
+              merged.goalStartDate = todayIsoDate();
+            }
+            return merged;
+          }),
+        );
+      }
     } catch {
       /* corrupt data – use defaults */
     }
@@ -333,6 +367,20 @@ export default function StillHere({
     return calculateLifeStats(birth, lifeExpectancy, settings.ageAdjusted);
   }, [settings.birthdate, lifeExpectancy, settings.ageAdjusted]);
 
+  const goalDateRangeInvalid = useMemo(() => {
+    const start = parseIsoDate(settings.goalStartDate);
+    const end = parseIsoDate(settings.goalEndDate);
+    if (!start || !end) return false;
+    return end.getTime() < start.getTime();
+  }, [settings.goalStartDate, settings.goalEndDate]);
+
+  const goalProgress = useMemo(() => {
+    const start = parseIsoDate(settings.goalStartDate);
+    const end = parseIsoDate(settings.goalEndDate);
+    if (!start || !end || end.getTime() < start.getTime()) return null;
+    return calculateGoalProgress(start, end);
+  }, [settings.goalStartDate, settings.goalEndDate]);
+
   /* ---- actions ---- */
   const set = useCallback(
     (key: keyof Settings, value: string | boolean) =>
@@ -353,6 +401,17 @@ export default function StillHere({
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-gradient-to-b from-stone-50 via-orange-50/30 to-stone-100">
+        {/* ============ TOP LEFT GOAL SETUP ============ */}
+        <div className="absolute top-4 left-4">
+          <button
+            onClick={() => setShowGoalSetup((v) => !v)}
+            className="flex items-center gap-1.5 text-xs text-stone-400 hover:text-stone-600 transition-colors"
+          >
+            <Flag className="h-4 w-4" />
+            <span>Goal</span>
+          </button>
+        </div>
+
         {/* ============ TOP RIGHT SETTINGS ============ */}
         {stats && (
           <div className="absolute top-4 right-4">
@@ -410,6 +469,30 @@ export default function StillHere({
             </div>
           )}
 
+          {(goalProgress || goalDateRangeInvalid || settings.goalEndDate) && (
+            <div className="mt-8">
+              {goalProgress ? (
+                <GoalTimeline
+                  title={settings.goalTitle}
+                  startDate={settings.goalStartDate}
+                  endDate={settings.goalEndDate}
+                  elapsedGoalDays={goalProgress.elapsedGoalDays}
+                  totalGoalDays={goalProgress.totalGoalDays}
+                  remainingGoalDays={goalProgress.remainingGoalDays}
+                  progressPct={goalProgress.progressPct}
+                />
+              ) : goalDateRangeInvalid ? (
+                <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  Goal timeline not shown because end date is before start date.
+                </p>
+              ) : (
+                <p className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-600">
+                  Add a valid start and end date in the goal section to show your timeline.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* ============ SETTINGS DIALOG ============ */}
           {!stats && (
             <div className="mt-10 mx-auto max-w-md">
@@ -422,6 +505,16 @@ export default function StillHere({
                 <DialogTitle className="text-lg font-semibold text-stone-800">Your clock</DialogTitle>
               </DialogHeader>
               <SettingsCard settings={settings} stats={stats} set={set} />
+            </DialogContent>
+          </Dialog>
+          <Dialog open={showGoalSetup} onOpenChange={setShowGoalSetup}>
+            <DialogContent className="max-w-md rounded-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-lg font-semibold text-stone-800">
+                  Goal timeline
+                </DialogTitle>
+              </DialogHeader>
+              <GoalSetupCard settings={settings} set={set} />
             </DialogContent>
           </Dialog>
 
@@ -533,6 +626,60 @@ function SettingsCard({
   );
 }
 
+function GoalSetupCard({
+  settings,
+  set,
+}: {
+  settings: Settings;
+  set: (key: keyof Settings, value: string | boolean) => void;
+}) {
+  const goalStart = parseIsoDate(settings.goalStartDate);
+  const goalEnd = parseIsoDate(settings.goalEndDate);
+  const invalidGoalRange =
+    !!goalStart && !!goalEnd && goalEnd.getTime() < goalStart.getTime();
+
+  return (
+    <section className="space-y-5 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+      <p className="text-sm font-medium text-stone-700">Goal setup</p>
+
+      <Field label="Goal name (optional)">
+        <Input
+          value={settings.goalTitle}
+          onChange={(e) => set("goalTitle", e.target.value)}
+          placeholder="Example: Finish project alpha"
+          className="rounded-xl"
+        />
+      </Field>
+
+      <Field label="Start date">
+        <BirthDateFields value={settings.goalStartDate} onChange={(iso) => set("goalStartDate", iso)} />
+      </Field>
+
+      <Field label="End date">
+        <BirthDateFields value={settings.goalEndDate} onChange={(iso) => set("goalEndDate", iso)} />
+      </Field>
+
+      {settings.goalStartDate && !settings.goalEndDate && (
+        <p className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-xs text-stone-600">
+          Pick an end date to start tracking daily X marks.
+        </p>
+      )}
+
+      {!settings.goalStartDate && settings.goalEndDate && (
+        <p className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-xs text-stone-600">
+          Add a start date before the end date.
+        </p>
+      )}
+
+      {invalidGoalRange && (
+        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+          End date must be on or after start date.
+        </p>
+      )}
+    </section>
+  );
+}
+
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-white p-4 text-center shadow-sm sm:p-5">
@@ -583,5 +730,65 @@ function LifeGrid({ daysAlive, totalDays }: { daysAlive: number; totalDays: numb
         <span>end</span>
       </div>
     </div>
+  );
+}
+
+function GoalTimeline({
+  title,
+  startDate,
+  endDate,
+  elapsedGoalDays,
+  totalGoalDays,
+  remainingGoalDays,
+  progressPct,
+}: {
+  title: string;
+  startDate: string;
+  endDate: string;
+  elapsedGoalDays: number;
+  totalGoalDays: number;
+  remainingGoalDays: number;
+  progressPct: number;
+}) {
+  const todayLabel = new Date().toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+
+  return (
+    <section className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="truncate text-sm font-medium text-stone-800">
+          {title.trim() || "Goal timeline"}
+        </p>
+        <p className="shrink-0 text-xs tabular-nums text-stone-500">
+          {fmt(elapsedGoalDays)} / {fmt(totalGoalDays)} days
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-1 rounded-xl bg-stone-50 p-2">
+        {Array.from({ length: totalGoalDays }, (_, i) => (
+          <span
+            key={i}
+            className={`flex h-4 w-4 items-center justify-center rounded text-[10px] font-semibold tabular-nums ${
+              i < elapsedGoalDays ? "bg-amber-200 text-amber-900" : "bg-white text-stone-300"
+            }`}
+          >
+            {i < elapsedGoalDays ? "X" : ""}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-500">
+        <span>start {startDate}</span>
+        <span>today {todayLabel}</span>
+        <span>end {endDate}</span>
+      </div>
+      <div className="mt-1 flex items-center justify-between text-xs text-stone-500">
+        <span className="tabular-nums">{progressPct.toFixed(1)}% complete</span>
+        <span className="tabular-nums">{fmt(remainingGoalDays)} days left</span>
+      </div>
+    </section>
   );
 }
