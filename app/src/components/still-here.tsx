@@ -746,15 +746,13 @@ function GoalTimeline({
         </p>
       </div>
 
-      <div className="flex gap-[2px] rounded-xl bg-[#171C22] p-2">
-        {Array.from({ length: totalGoalDays }, (_, i) => (
+      <div className="rounded-xl bg-[#171C22] p-3">
+        <div className="h-2 w-full rounded-full bg-[#27303A]">
           <div
-            key={i}
-            className={`h-3 min-w-0 flex-1 rounded-sm ${
-              i < elapsedGoalDays ? "bg-[#6366F1]" : "bg-[#27303A]"
-            }`}
+            className="h-2 rounded-full bg-[#6366F1] transition-all"
+            style={{ width: `${Math.max(progressPct, 1)}%` }}
           />
-        ))}
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#A8B3C2]">
