@@ -30,10 +30,11 @@ import {
   Clock,
   Info,
   Heart,
+  Flag,
   Settings,
 } from "lucide-react";
 import { regions, getRegionById } from "@/lib/life-data";
-import { calculateLifeStats } from "@/lib/calculator";
+import { calculateGoalProgress, calculateLifeStats } from "@/lib/calculator";
 
 // ---------------------------------------------------------------------------
 
@@ -42,6 +43,9 @@ interface Settings {
   regionId: string;
   customLifeExpectancy: string;
   ageAdjusted: boolean;
+  goalTitle: string;
+  goalStartDate: string;
+  goalEndDate: string;
 }
 
 const STORAGE_KEY = "still-here-settings";
@@ -51,6 +55,9 @@ const DEFAULT_SETTINGS: Settings = {
   regionId: "world",
   customLifeExpectancy: "73",
   ageAdjusted: true,
+  goalTitle: "",
+  goalStartDate: todayIsoDate(),
+  goalEndDate: "",
 };
 
 function settingsWithGeoSuggestion(suggestedRegionId?: string | null): Settings {
@@ -67,6 +74,14 @@ function settingsWithGeoSuggestion(suggestedRegionId?: string | null): Settings 
 
 function fmt(n: number): string {
   return new Intl.NumberFormat().format(n);
+}
+
+function todayIsoDate(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 /** Returns YYYY-MM-DD or null if incomplete / invalid calendar date. */
@@ -87,6 +102,13 @@ function parseIsoToParts(s: string): { y: string; m: string; d: string } {
   if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return { y: "", m: "", d: "" };
   const [y, m, d] = s.split("-");
   return { y: y ?? "", m: m ?? "", d: d ?? "" };
+}
+
+function parseIsoDate(s: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(`${s}T00:00:00`);
+  if (isNaN(d.getTime())) return null;
+  return d;
 }
 
 /** Short beat after the date is complete before committing (main UI transition). */
@@ -229,9 +251,9 @@ function BirthDateFields({
             aria-invalid={invalid}
             className="rounded-xl text-center tabular-nums tracking-wide"
           />
-          <p className="text-center text-[0.65rem] text-stone-400">Year</p>
+          <p className="text-center text-[0.65rem] text-[#6B7A8D]">Year</p>
         </div>
-        <span className="pb-5 text-stone-300 select-none" aria-hidden>
+        <span className="pb-5 text-[#6B7A8D] select-none" aria-hidden>
           /
         </span>
         <div className="min-w-0 flex-1 space-y-1">
@@ -255,9 +277,9 @@ function BirthDateFields({
             aria-invalid={invalid}
             className="rounded-xl text-center tabular-nums tracking-wide"
           />
-          <p className="text-center text-[0.65rem] text-stone-400">Month</p>
+          <p className="text-center text-[0.65rem] text-[#6B7A8D]">Month</p>
         </div>
-        <span className="pb-5 text-stone-300 select-none" aria-hidden>
+        <span className="pb-5 text-[#6B7A8D] select-none" aria-hidden>
           /
         </span>
         <div className="min-w-0 flex-1 space-y-1">
@@ -280,12 +302,12 @@ function BirthDateFields({
             aria-invalid={invalid}
             className="rounded-xl text-center tabular-nums tracking-wide"
           />
-          <p className="text-center text-[0.65rem] text-stone-400">Day</p>
+          <p className="text-center text-[0.65rem] text-[#6B7A8D]">Day</p>
         </div>
       </div>
-      <p className="text-xs text-stone-400">
+      <p className="text-xs text-[#6B7A8D]">
         <span className="tabular-nums">YYYY–MM–DD</span>
-        <span className="text-stone-300"> · </span>
+        <span className="text-[#6B7A8D]"> · </span>
         Tab between fields
       </p>
     </div>
@@ -302,6 +324,7 @@ export default function StillHere({
   const [settings, setSettings] = useState<Settings>(() =>
     settingsWithGeoSuggestion(suggestedRegionId),
   );
+  const [showGoalSetup, setShowGoalSetup] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -309,7 +332,18 @@ export default function StillHere({
   useEffect(() => {
     try {
       const s = localStorage.getItem(STORAGE_KEY);
-      if (s) queueMicrotask(() => setSettings(JSON.parse(s)));
+      if (s) {
+        const parsed = JSON.parse(s) as Partial<Settings>;
+        queueMicrotask(() =>
+          setSettings((prev) => {
+            const merged = { ...prev, ...parsed };
+            if (!parseIsoDate(merged.goalStartDate)) {
+              merged.goalStartDate = todayIsoDate();
+            }
+            return merged;
+          }),
+        );
+      }
     } catch {
       /* corrupt data – use defaults */
     }
@@ -333,6 +367,20 @@ export default function StillHere({
     return calculateLifeStats(birth, lifeExpectancy, settings.ageAdjusted);
   }, [settings.birthdate, lifeExpectancy, settings.ageAdjusted]);
 
+  const goalDateRangeInvalid = useMemo(() => {
+    const start = parseIsoDate(settings.goalStartDate);
+    const end = parseIsoDate(settings.goalEndDate);
+    if (!start || !end) return false;
+    return end.getTime() < start.getTime();
+  }, [settings.goalStartDate, settings.goalEndDate]);
+
+  const goalProgress = useMemo(() => {
+    const start = parseIsoDate(settings.goalStartDate);
+    const end = parseIsoDate(settings.goalEndDate);
+    if (!start || !end || end.getTime() < start.getTime()) return null;
+    return calculateGoalProgress(start, end);
+  }, [settings.goalStartDate, settings.goalEndDate]);
+
   /* ---- actions ---- */
   const set = useCallback(
     (key: keyof Settings, value: string | boolean) =>
@@ -343,8 +391,8 @@ export default function StillHere({
   /* ---- loading guard (avoids SSR/client mismatch) ---- */
   if (!mounted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-stone-50">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-stone-300 border-t-stone-600" />
+      <div className="flex min-h-screen items-center justify-center bg-[#0B0D10]">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#27303A] border-t-[#6366F1]" />
       </div>
     );
   }
@@ -352,13 +400,24 @@ export default function StillHere({
   // -----------------------------------------------------------------------
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-gradient-to-b from-stone-50 via-orange-50/30 to-stone-100">
+      <div className="min-h-screen bg-gradient-to-b from-[#0B0D10] via-[#11151A] to-[#171C22]">
+        {/* ============ TOP LEFT GOAL SETUP ============ */}
+        <div className="absolute top-4 left-4">
+          <button
+            onClick={() => setShowGoalSetup((v) => !v)}
+            className="flex items-center gap-1.5 text-xs text-[#A8B3C2] hover:text-[#EEF2FF] transition-colors"
+          >
+            <Flag className="h-4 w-4" />
+            <span>Goal</span>
+          </button>
+        </div>
+
         {/* ============ TOP RIGHT SETTINGS ============ */}
         {stats && (
           <div className="absolute top-4 right-4">
             <button
               onClick={() => setShowSettings((v) => !v)}
-              className="flex items-center gap-1.5 text-xs text-stone-400 hover:text-stone-600 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-[#A8B3C2] hover:text-[#EEF2FF] transition-colors"
             >
               <Settings className="h-4 w-4" />
             </button>
@@ -367,25 +426,25 @@ export default function StillHere({
 
         {/* ============ HERO ============ */}
         <header className="mx-auto max-w-4xl px-4 pt-16 text-center sm:px-6 lg:px-8">
-          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-stone-400">
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-[#A8B3C2]">
             Still Here
           </p>
 
           {stats ? (
             <>
-              <h1 className="mt-5 text-7xl font-bold tabular-nums tracking-tight text-stone-900 sm:text-9xl">
+              <h1 className="mt-5 text-7xl font-bold tabular-nums tracking-tight text-[#F3F5F7] sm:text-9xl">
                 {fmt(stats.daysRemaining)}
               </h1>
-              <p className="mt-2 text-base text-stone-500">
+              <p className="mt-2 text-base text-[#A8B3C2]">
                 days remaining&ensp;&middot;&ensp;{stats.todayLabel}
               </p>
             </>
           ) : (
             <>
-              <h1 className="mt-6 text-5xl font-bold tracking-tight text-stone-800 sm:text-7xl">
+              <h1 className="mt-6 text-5xl font-bold tracking-tight text-[#F3F5F7] sm:text-7xl">
                 Hello
               </h1>
-              <p className="mx-auto mt-3 max-w-md text-lg leading-relaxed text-stone-500">
+              <p className="mx-auto mt-3 max-w-md text-lg leading-relaxed text-[#A8B3C2]">
                 Enter your birth date to start counting your days.
               </p>
             </>
@@ -410,6 +469,30 @@ export default function StillHere({
             </div>
           )}
 
+          {(goalProgress || goalDateRangeInvalid || settings.goalEndDate) && (
+            <div className="mt-8">
+              {goalProgress ? (
+                <GoalTimeline
+                  title={settings.goalTitle}
+                  startDate={settings.goalStartDate}
+                  endDate={settings.goalEndDate}
+                  elapsedGoalDays={goalProgress.elapsedGoalDays}
+                  totalGoalDays={goalProgress.totalGoalDays}
+                  remainingGoalDays={goalProgress.remainingGoalDays}
+                  progressPct={goalProgress.progressPct}
+                />
+              ) : goalDateRangeInvalid ? (
+                <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  Goal timeline not shown because end date is before start date.
+                </p>
+              ) : (
+                <p className="rounded-xl border border-[#27303A] bg-[#11151A] px-4 py-3 text-sm text-[#A8B3C2]">
+                  Add a valid start and end date in the goal section to show your timeline.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* ============ SETTINGS DIALOG ============ */}
           {!stats && (
             <div className="mt-10 mx-auto max-w-md">
@@ -417,18 +500,28 @@ export default function StillHere({
             </div>
           )}
           <Dialog open={!!stats && showSettings} onOpenChange={setShowSettings}>
-            <DialogContent className="max-w-md rounded-2xl">
+            <DialogContent className="max-w-md rounded-2xl border-[#27303A] bg-[#11151A] text-[#F3F5F7]">
               <DialogHeader>
-                <DialogTitle className="text-lg font-semibold text-stone-800">Your clock</DialogTitle>
+                <DialogTitle className="text-lg font-semibold text-[#F3F5F7]">Your clock</DialogTitle>
               </DialogHeader>
               <SettingsCard settings={settings} stats={stats} set={set} />
+            </DialogContent>
+          </Dialog>
+          <Dialog open={showGoalSetup} onOpenChange={setShowGoalSetup}>
+            <DialogContent className="max-w-md rounded-2xl border-[#27303A] bg-[#11151A] text-[#F3F5F7]">
+              <DialogHeader>
+                <DialogTitle className="text-lg font-semibold text-[#F3F5F7]">
+                  Goal timeline
+                </DialogTitle>
+              </DialogHeader>
+              <GoalSetupCard settings={settings} set={set} />
             </DialogContent>
           </Dialog>
 
           {/* ============ FOOTER ============ */}
           <footer className="mt-20 text-center">
             <Separator className="mb-8" />
-            <p className="text-xs italic text-stone-400">
+            <p className="text-xs italic text-[#6B7A8D]">
               This is not prophecy. It is a memento mori with better UI.
             </p>
           </footer>
@@ -460,7 +553,7 @@ function SettingsCard({
       <Field label="Region">
         <Select value={settings.regionId} onValueChange={(v) => v && set("regionId", v)}>
           <SelectTrigger
-            className="h-11 w-full min-w-0 justify-between gap-3 rounded-xl border-stone-200 bg-white px-4 py-2 text-left text-sm font-medium text-stone-800 shadow-sm hover:bg-stone-50/80 data-placeholder:text-stone-400 [&_svg]:shrink-0 [&_svg]:text-stone-400"
+            className="h-11 w-full min-w-0 justify-between gap-3 rounded-xl border-[#27303A] bg-[#171C22] px-4 py-2 text-left text-sm font-medium text-[#F3F5F7] shadow-sm hover:bg-[#1E242C] data-placeholder:text-[#6B7A8D] [&_svg]:shrink-0 [&_svg]:text-[#A8B3C2]"
           >
             <SelectValue placeholder="Choose region" />
           </SelectTrigger>
@@ -469,13 +562,17 @@ function SettingsCard({
             alignItemWithTrigger={false}
             side="bottom"
             sideOffset={6}
-            className="max-h-[min(17rem,50dvh)] rounded-xl border-stone-200 bg-white p-1 shadow-lg ring-1 ring-stone-900/5"
+            className="max-h-[min(17rem,50dvh)] rounded-xl border-[#27303A] bg-[#11151A] p-1 shadow-lg ring-1 ring-[#27303A]"
           >
             {regions.map((r) => (
-              <SelectItem key={r.id} value={r.id} className="rounded-lg py-2.5 pl-3">
-                <span className="min-w-0 flex-1 truncate text-stone-800">{r.name}</span>
+              <SelectItem
+                key={r.id}
+                value={r.id}
+                className="rounded-lg py-2.5 pl-3 text-[#F3F5F7] transition-colors hover:bg-[#1E242C] hover:text-[#EEF2FF] data-[highlighted]:bg-[#1E1B4B] data-[highlighted]:text-[#EEF2FF]"
+              >
+                <span className="min-w-0 flex-1 truncate text-[#F3F5F7]">{r.name}</span>
                 {r.lifeExpectancy > 0 ? (
-                  <span className="shrink-0 tabular-nums text-xs text-stone-400">{r.lifeExpectancy} yr</span>
+                  <span className="shrink-0 tabular-nums text-xs text-[#6B7A8D]">{r.lifeExpectancy} yr</span>
                 ) : null}
               </SelectItem>
             ))}
@@ -497,14 +594,14 @@ function SettingsCard({
         </Field>
       )}
 
-      <div className="flex items-center justify-between gap-3 rounded-xl bg-stone-50 px-4 py-3">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-[#27303A] bg-[#171C22] px-4 py-3">
         <div className="flex items-center gap-2">
-          <Label htmlFor="age-adj" className="text-sm font-medium text-stone-700">
+          <Label htmlFor="age-adj" className="text-sm font-medium text-[#F3F5F7]">
             Age-adjusted
           </Label>
           <Tooltip>
             <TooltipTrigger className="cursor-help">
-              <Info className="h-3.5 w-3.5 text-stone-400" />
+              <Info className="h-3.5 w-3.5 text-[#A8B3C2]" />
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[260px] text-xs leading-relaxed">
               Uses conditional survival: since you already survived to your current age,
@@ -516,11 +613,12 @@ function SettingsCard({
           id="age-adj"
           checked={settings.ageAdjusted}
           onCheckedChange={(v) => set("ageAdjusted", v)}
+          className="h-6 w-11 border-[#27303A] data-checked:bg-[#4F46E5] data-unchecked:bg-[#1E242C] focus-visible:ring-[#6366F1]/50"
         />
       </div>
 
       {stats && (
-        <div className="space-y-1 rounded-xl border border-stone-100 bg-stone-50/50 p-4 text-sm">
+        <div className="space-y-1 rounded-xl border border-[#27303A] bg-[#171C22] p-4 text-sm">
           <Row k="Current age" v={`${stats.currentAge.toFixed(1)} years`} />
           <Row
             k="Expected lifespan"
@@ -533,11 +631,65 @@ function SettingsCard({
   );
 }
 
+function GoalSetupCard({
+  settings,
+  set,
+}: {
+  settings: Settings;
+  set: (key: keyof Settings, value: string | boolean) => void;
+}) {
+  const goalStart = parseIsoDate(settings.goalStartDate);
+  const goalEnd = parseIsoDate(settings.goalEndDate);
+  const invalidGoalRange =
+    !!goalStart && !!goalEnd && goalEnd.getTime() < goalStart.getTime();
+
+  return (
+    <section className="space-y-5 rounded-2xl border border-[#27303A] bg-[#11151A] p-4 shadow-sm sm:p-5">
+      <p className="text-sm font-medium text-[#F3F5F7]">Goal setup</p>
+
+      <Field label="Goal name (optional)">
+        <Input
+          value={settings.goalTitle}
+          onChange={(e) => set("goalTitle", e.target.value)}
+          placeholder="Example: Finish project alpha"
+          className="rounded-xl"
+        />
+      </Field>
+
+      <Field label="Start date">
+        <BirthDateFields value={settings.goalStartDate} onChange={(iso) => set("goalStartDate", iso)} />
+      </Field>
+
+      <Field label="End date">
+        <BirthDateFields value={settings.goalEndDate} onChange={(iso) => set("goalEndDate", iso)} />
+      </Field>
+
+      {settings.goalStartDate && !settings.goalEndDate && (
+        <p className="rounded-xl border border-[#27303A] bg-[#171C22] px-4 py-3 text-xs text-[#A8B3C2]">
+          Pick an end date to start tracking daily X marks.
+        </p>
+      )}
+
+      {!settings.goalStartDate && settings.goalEndDate && (
+        <p className="rounded-xl border border-[#27303A] bg-[#171C22] px-4 py-3 text-xs text-[#A8B3C2]">
+          Add a start date before the end date.
+        </p>
+      )}
+
+      {invalidGoalRange && (
+        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+          End date must be on or after start date.
+        </p>
+      )}
+    </section>
+  );
+}
+
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-white p-4 text-center shadow-sm sm:p-5">
-      <p className="text-2xl font-semibold tabular-nums text-stone-900 sm:text-3xl">{value}</p>
-      <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[0.7rem] text-stone-400">
+    <div className="rounded-2xl border border-[#27303A] bg-[#11151A] p-4 text-center shadow-sm sm:p-5">
+      <p className="text-2xl font-semibold tabular-nums text-[#F3F5F7] sm:text-3xl">{value}</p>
+      <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[0.7rem] text-[#A8B3C2]">
         {icon}
         <span>{label}</span>
       </div>
@@ -548,7 +700,7 @@ function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; va
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <Label className="text-sm text-stone-600">{label}</Label>
+      <Label className="text-sm text-[#A8B3C2]">{label}</Label>
       {children}
     </div>
   );
@@ -556,8 +708,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Row({ k, v }: { k: string; v: string }) {
   return (
-    <p className="text-stone-600">
-      <span className="text-stone-400">{k}:</span>{" "}
+    <p className="text-[#A8B3C2]">
+      <span className="text-[#6B7A8D]">{k}:</span>{" "}
       <span className="font-medium">{v}</span>
     </p>
   );
@@ -573,15 +725,75 @@ function LifeGrid({ daysAlive, totalDays }: { daysAlive: number; totalDays: numb
         {Array.from({ length: totalWeeks }, (_, i) => (
           <div
             key={i}
-            className={`h-2 w-2 rounded-full ${i < weeksLived ? "bg-amber-400" : "bg-stone-200"}`}
+            className={`h-2 w-2 rounded-full ${i < weeksLived ? "bg-[#6366F1]" : "bg-[#27303A]"}`}
           />
         ))}
       </div>
-      <div className="mt-2 flex justify-between text-[10px] text-stone-400">
+      <div className="mt-2 flex justify-between text-[10px] text-[#6B7A8D]">
         <span>birth</span>
         <span className="tabular-nums">{((weeksLived / totalWeeks) * 100).toFixed(1)}% lived</span>
         <span>end</span>
       </div>
     </div>
+  );
+}
+
+function GoalTimeline({
+  title,
+  startDate,
+  endDate,
+  elapsedGoalDays,
+  totalGoalDays,
+  remainingGoalDays,
+  progressPct,
+}: {
+  title: string;
+  startDate: string;
+  endDate: string;
+  elapsedGoalDays: number;
+  totalGoalDays: number;
+  remainingGoalDays: number;
+  progressPct: number;
+}) {
+  const todayLabel = new Date().toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+
+  return (
+    <section className="rounded-2xl border border-[#27303A] bg-[#11151A] p-4 shadow-sm sm:p-5">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="truncate text-sm font-medium text-[#F3F5F7]">
+          {title.trim() || "Goal timeline"}
+        </p>
+        <p className="shrink-0 text-xs tabular-nums text-[#A8B3C2]">
+          {fmt(elapsedGoalDays)} / {fmt(totalGoalDays)} days
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-1 rounded-xl bg-[#171C22] p-2">
+        {Array.from({ length: totalGoalDays }, (_, i) => (
+          <span
+            key={i}
+            className={`flex h-4 w-4 items-center justify-center rounded text-[10px] font-semibold tabular-nums ${
+              i < elapsedGoalDays ? "bg-[#1E1B4B] text-[#C7D2FE]" : "bg-[#11151A] text-[#6B7A8D]"
+            }`}
+          >
+            {i < elapsedGoalDays ? "X" : ""}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#A8B3C2]">
+        <span>start {startDate}</span>
+        <span>today {todayLabel}</span>
+        <span>end {endDate}</span>
+      </div>
+      <div className="mt-1 flex items-center justify-between text-xs text-[#A8B3C2]">
+        <span className="tabular-nums">{progressPct.toFixed(1)}% complete</span>
+        <span className="tabular-nums">{fmt(remainingGoalDays)} days left</span>
+      </div>
+    </section>
   );
 }
