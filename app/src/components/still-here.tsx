@@ -295,11 +295,6 @@ function BirthDateFields({
           <p className="text-center text-xs text-[#6B7A8D]">Day</p>
         </div>
       </div>
-      <p className="text-xs text-[#6B7A8D]">
-        <span className="tabular-nums">YYYY–MM–DD</span>
-        <span className="text-[#6B7A8D]"> · </span>
-        Tab between fields
-      </p>
     </div>
   );
 }
@@ -448,16 +443,7 @@ export default function StillHere({
         )}
 
         <div className="mx-auto max-w-4xl px-4 pb-16 sm:px-6 lg:px-8">
-          {/* ============ STATS GRID ============ */}
-          {stats && (
-            <div className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-              <Stat icon={<CalendarDays className="h-3.5 w-3.5" />} label="Days lived" value={fmt(stats.daysAlive)} />
-              <Stat icon={<Hourglass className="h-3.5 w-3.5" />} label="Days remaining" value={fmt(stats.daysRemaining)} />
-              <Stat icon={<Clock className="h-3.5 w-3.5" />} label="Weeks remaining" value={fmt(stats.weeksRemaining)} />
-              <Stat icon={<Heart className="h-3.5 w-3.5" />} label="Years remaining" value={stats.remainingYears.toFixed(1)} />
-            </div>
-          )}
-
+          {/* ============ GOAL TIMELINE ============ */}
           {(goalProgress || goalDateRangeInvalid || settings.goalEndDate) && (
             <div className="mt-8">
               {goalProgress ? (
@@ -479,6 +465,16 @@ export default function StillHere({
                   Add a valid start and end date in the goal section to show your timeline.
                 </p>
               )}
+            </div>
+          )}
+
+          {/* ============ STATS GRID ============ */}
+          {stats && (
+            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+              <Stat icon={<CalendarDays className="h-3.5 w-3.5" />} label="Days lived" value={fmt(stats.daysAlive)} />
+              <Stat icon={<Hourglass className="h-3.5 w-3.5" />} label="Days remaining" value={fmt(stats.daysRemaining)} />
+              <Stat icon={<Clock className="h-3.5 w-3.5" />} label="Weeks remaining" value={fmt(stats.weeksRemaining)} />
+              <Stat icon={<Heart className="h-3.5 w-3.5" />} label="Years remaining" value={stats.remainingYears.toFixed(1)} />
             </div>
           )}
 
@@ -523,7 +519,7 @@ export default function StillHere({
                 region minus days lived, adjusted slightly upward because you&apos;re already here.
               </p>
             </div>
-            <p className="text-xs italic text-[#6B7A8D]">
+            <p className="text-xs text-[#6B7A8D]">
               This is not prophecy. It is a memento mori with better UI.
             </p>
           </footer>
