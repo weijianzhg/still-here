@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -17,18 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import {
   CalendarDays,
   Hourglass,
   Clock,
-  Info,
   Heart,
   Flag,
   Settings,
@@ -42,7 +34,6 @@ interface Settings {
   birthdate: string;
   regionId: string;
   customLifeExpectancy: string;
-  ageAdjusted: boolean;
   goalTitle: string;
   goalStartDate: string;
   goalEndDate: string;
@@ -54,7 +45,6 @@ const DEFAULT_SETTINGS: Settings = {
   birthdate: "",
   regionId: "world",
   customLifeExpectancy: "73",
-  ageAdjusted: true,
   goalTitle: "",
   goalStartDate: todayIsoDate(),
   goalEndDate: "",
@@ -251,7 +241,7 @@ function BirthDateFields({
             aria-invalid={invalid}
             className="rounded-xl text-center tabular-nums tracking-wide"
           />
-          <p className="text-center text-[0.65rem] text-[#6B7A8D]">Year</p>
+          <p className="text-center text-xs text-[#6B7A8D]">Year</p>
         </div>
         <span className="pb-5 text-[#6B7A8D] select-none" aria-hidden>
           /
@@ -277,7 +267,7 @@ function BirthDateFields({
             aria-invalid={invalid}
             className="rounded-xl text-center tabular-nums tracking-wide"
           />
-          <p className="text-center text-[0.65rem] text-[#6B7A8D]">Month</p>
+          <p className="text-center text-xs text-[#6B7A8D]">Month</p>
         </div>
         <span className="pb-5 text-[#6B7A8D] select-none" aria-hidden>
           /
@@ -302,7 +292,7 @@ function BirthDateFields({
             aria-invalid={invalid}
             className="rounded-xl text-center tabular-nums tracking-wide"
           />
-          <p className="text-center text-[0.65rem] text-[#6B7A8D]">Day</p>
+          <p className="text-center text-xs text-[#6B7A8D]">Day</p>
         </div>
       </div>
       <p className="text-xs text-[#6B7A8D]">
@@ -364,8 +354,8 @@ export default function StillHere({
   const stats = useMemo(() => {
     if (!settings.birthdate) return null;
     const birth = new Date(`${settings.birthdate}T00:00:00`);
-    return calculateLifeStats(birth, lifeExpectancy, settings.ageAdjusted);
-  }, [settings.birthdate, lifeExpectancy, settings.ageAdjusted]);
+    return calculateLifeStats(birth, lifeExpectancy, true);
+  }, [settings.birthdate, lifeExpectancy]);
 
   const goalDateRangeInvalid = useMemo(() => {
     const start = parseIsoDate(settings.goalStartDate);
@@ -399,7 +389,6 @@ export default function StillHere({
 
   // -----------------------------------------------------------------------
   return (
-    <TooltipProvider>
       <div className="min-h-screen bg-gradient-to-b from-[#0B0D10] via-[#11151A] to-[#171C22]">
         {/* ============ TOP LEFT GOAL SETUP ============ */}
         <div className="absolute top-4 left-4">
@@ -426,9 +415,9 @@ export default function StillHere({
 
         {/* ============ HERO ============ */}
         <header className="mx-auto max-w-4xl px-4 pt-16 text-center sm:px-6 lg:px-8">
-          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-[#A8B3C2]">
+          <h2 className="text-base font-semibold tracking-wide text-[#F3F5F7]">
             Still Here
-          </p>
+          </h2>
 
           {stats ? (
             <>
@@ -521,13 +510,25 @@ export default function StillHere({
           {/* ============ FOOTER ============ */}
           <footer className="mt-20 text-center">
             <Separator className="mb-8" />
+            <div className="mx-auto mb-6 max-w-2xl rounded-2xl border border-[#27303A] bg-[#11151A] p-5 text-left space-y-3">
+              <p className="text-sm font-medium text-[#F3F5F7]">How it works</p>
+              <p className="text-sm leading-relaxed text-[#A8B3C2]">
+                <span className="font-medium text-[#F3F5F7]">Your data stays on your device.</span>{" "}
+                Everything you enter is kept in your browser&apos;s local storage. Nothing is sent to a server, and
+                we don&apos;t have accounts or a database with your information.
+              </p>
+              <p className="text-sm leading-relaxed text-[#A8B3C2]">
+                <span className="font-medium text-[#F3F5F7]">The math is straightforward.</span>{" "}
+                Days lived = your birth date to today. Days remaining = average lifespan for your
+                region minus days lived, adjusted slightly upward because you&apos;re already here.
+              </p>
+            </div>
             <p className="text-xs italic text-[#6B7A8D]">
               This is not prophecy. It is a memento mori with better UI.
             </p>
           </footer>
         </div>
       </div>
-    </TooltipProvider>
   );
 }
 
@@ -594,35 +595,12 @@ function SettingsCard({
         </Field>
       )}
 
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-[#27303A] bg-[#171C22] px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Label htmlFor="age-adj" className="text-sm font-medium text-[#F3F5F7]">
-            Age-adjusted
-          </Label>
-          <Tooltip>
-            <TooltipTrigger className="cursor-help">
-              <Info className="h-3.5 w-3.5 text-[#A8B3C2]" />
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[260px] text-xs leading-relaxed">
-              Uses conditional survival: since you already survived to your current age,
-              your expected remaining lifespan is slightly higher than the birth average.
-            </TooltipContent>
-          </Tooltip>
-        </div>
-        <Switch
-          id="age-adj"
-          checked={settings.ageAdjusted}
-          onCheckedChange={(v) => set("ageAdjusted", v)}
-          className="h-6 w-11 border-[#27303A] data-checked:bg-[#4F46E5] data-unchecked:bg-[#1E242C] focus-visible:ring-[#6366F1]/50"
-        />
-      </div>
-
       {stats && (
         <div className="space-y-1 rounded-xl border border-[#27303A] bg-[#171C22] p-4 text-sm">
           <Row k="Current age" v={`${stats.currentAge.toFixed(1)} years`} />
           <Row
             k="Expected lifespan"
-            v={`${stats.expectedLifespan} years` + (settings.ageAdjusted ? " (adjusted)" : "")}
+            v={`${stats.expectedLifespan} years (adjusted)`}
           />
           <Row k="Estimated total days" v={fmt(stats.totalDays)} />
         </div>
@@ -689,7 +667,7 @@ function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; va
   return (
     <div className="rounded-2xl border border-[#27303A] bg-[#11151A] p-4 text-center shadow-sm sm:p-5">
       <p className="text-2xl font-semibold tabular-nums text-[#F3F5F7] sm:text-3xl">{value}</p>
-      <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[0.7rem] text-[#A8B3C2]">
+      <div className="mt-1.5 flex items-center justify-center gap-1.5 text-xs text-[#A8B3C2]">
         {icon}
         <span>{label}</span>
       </div>
@@ -729,7 +707,7 @@ function LifeGrid({ daysAlive, totalDays }: { daysAlive: number; totalDays: numb
           />
         ))}
       </div>
-      <div className="mt-2 flex justify-between text-[10px] text-[#6B7A8D]">
+      <div className="mt-2 flex justify-between text-xs text-[#6B7A8D]">
         <span>birth</span>
         <span className="tabular-nums">{((weeksLived / totalWeeks) * 100).toFixed(1)}% lived</span>
         <span>end</span>
@@ -776,7 +754,7 @@ function GoalTimeline({
         {Array.from({ length: totalGoalDays }, (_, i) => (
           <span
             key={i}
-            className={`flex h-4 w-4 items-center justify-center rounded text-[10px] font-semibold tabular-nums ${
+            className={`flex h-4 w-4 items-center justify-center rounded text-xs font-semibold tabular-nums ${
               i < elapsedGoalDays ? "bg-[#1E1B4B] text-[#C7D2FE]" : "bg-[#11151A] text-[#6B7A8D]"
             }`}
           >
@@ -785,7 +763,7 @@ function GoalTimeline({
         ))}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#A8B3C2]">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#A8B3C2]">
         <span>start {startDate}</span>
         <span>today {todayLabel}</span>
         <span>end {endDate}</span>
