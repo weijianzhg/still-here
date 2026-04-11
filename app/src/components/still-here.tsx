@@ -102,7 +102,7 @@ function parseIsoDate(s: string): Date | null {
 }
 
 /** Short beat after the date is complete before committing (main UI transition). */
-const BIRTHDATE_COMMIT_DELAY_MS = 420;
+const BIRTHDATE_COMMIT_DELAY_MS = 900;
 
 function BirthDateFields({
   value,
@@ -239,7 +239,7 @@ function BirthDateFields({
               }
             }}
             aria-invalid={invalid}
-            className="rounded-xl text-center tabular-nums tracking-wide"
+            className="rounded-xl text-center tabular-nums tracking-wide text-[#F3F5F7]"
           />
           <p className="text-center text-xs text-[#6B7A8D]">Year</p>
         </div>
@@ -265,7 +265,7 @@ function BirthDateFields({
               flushCommit(y, pm, d);
             }}
             aria-invalid={invalid}
-            className="rounded-xl text-center tabular-nums tracking-wide"
+            className="rounded-xl text-center tabular-nums tracking-wide text-[#F3F5F7]"
           />
           <p className="text-center text-xs text-[#6B7A8D]">Month</p>
         </div>
@@ -290,7 +290,7 @@ function BirthDateFields({
               flushCommit(y, m, pd);
             }}
             aria-invalid={invalid}
-            className="rounded-xl text-center tabular-nums tracking-wide"
+            className="rounded-xl text-center tabular-nums tracking-wide text-[#F3F5F7]"
           />
           <p className="text-center text-xs text-[#6B7A8D]">Day</p>
         </div>
