@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,10 +18,6 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
-  CalendarDays,
-  Hourglass,
-  Clock,
-  Heart,
   Flag,
   Settings,
   Trash2,
@@ -140,7 +136,7 @@ function BirthDateFields({
         }
       }}
       aria-invalid={invalid}
-      className="h-12 rounded-lg px-4 text-[#F3F5F7] tabular-nums tracking-wide text-base"
+      className="h-10 rounded-lg px-4 text-[#F3F5F7] tabular-nums tracking-wide text-base"
     />
   );
 }
@@ -241,12 +237,12 @@ export default function StillHere({
 
   // -----------------------------------------------------------------------
   return (
-      <div className="min-h-screen bg-gradient-to-b from-[#0B0D10] via-[#11151A] to-[#171C22]">
+      <div className="min-h-screen bg-[#0B0D10]">
         {/* ============ TOP LEFT GOAL SETUP ============ */}
         <div className="absolute top-4 left-4">
           <button
             onClick={() => setShowGoalSetup((v) => !v)}
-            className="flex items-center gap-1.5 text-xs text-[#A8B3C2] hover:text-[#EEF2FF] transition-colors"
+            className="flex items-center gap-1.5 text-xs font-medium text-[#A8B3C2] hover:text-[#EEF2FF] transition-colors"
           >
             <Flag className="h-4 w-4" />
             <span>Goal</span>
@@ -258,9 +254,9 @@ export default function StillHere({
           <div className="absolute top-4 right-4">
             <button
               onClick={() => setShowSettings((v) => !v)}
-              className="flex items-center gap-1.5 text-xs text-[#A8B3C2] hover:text-[#EEF2FF] transition-colors"
-            >
-              <Settings className="h-4 w-4" />
+            className="flex items-center gap-1.5 text-xs font-medium text-[#A8B3C2] hover:text-[#EEF2FF] transition-colors"
+          >
+            <Settings className="h-4 w-4" />
             </button>
           </div>
         )}
@@ -273,7 +269,7 @@ export default function StillHere({
 
           {stats ? (
             <>
-              <h1 className="mt-5 text-7xl font-bold tabular-nums tracking-tight text-[#F3F5F7] sm:text-9xl">
+              <h1 className="mt-5 text-6xl font-bold tabular-nums tracking-tight text-[#F3F5F7] sm:text-8xl">
                 {fmt(stats.daysRemaining)}
               </h1>
               <p className="mt-2 text-base text-[#A8B3C2]">
@@ -295,7 +291,7 @@ export default function StillHere({
         {/* ============ LIFE GRID (wider container) ============ */}
         {stats && (
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <LifeGrid daysAlive={stats.daysAlive} totalDays={stats.totalDays} />
+            <LifeGrid daysAlive={stats.daysAlive} totalDays={stats.totalDays} stats={stats} />
           </div>
         )}
 
@@ -326,15 +322,7 @@ export default function StillHere({
             </div>
           )}
 
-          {/* ============ STATS GRID ============ */}
-          {stats && (
-            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-              <Stat icon={<CalendarDays className="h-3.5 w-3.5" />} label="Days lived" value={fmt(stats.daysAlive)} />
-              <Stat icon={<Hourglass className="h-3.5 w-3.5" />} label="Days remaining" value={fmt(stats.daysRemaining)} />
-              <Stat icon={<Clock className="h-3.5 w-3.5" />} label="Weeks remaining" value={fmt(stats.weeksRemaining)} />
-              <Stat icon={<Heart className="h-3.5 w-3.5" />} label="Years remaining" value={stats.remainingYears.toFixed(1)} />
-            </div>
-          )}
+          {/* Stats are rendered inline within the life grid */}
 
           {/* ============ SETTINGS DIALOG ============ */}
           {!stats && (
@@ -408,7 +396,7 @@ function SettingsCard({
       <Field label="Region">
         <Select value={settings.regionId} onValueChange={(v) => v && set("regionId", v)}>
           <SelectTrigger
-            className="h-10 w-full min-w-0 justify-between gap-3 rounded-lg border-[#27303A] bg-[#171C22] px-4 py-2 text-left text-sm font-medium text-[#F3F5F7] shadow-sm hover:bg-[#1E242C] data-placeholder:text-[#6B7A8D] [&_svg]:shrink-0 [&_svg]:text-[#A8B3C2]"
+            className="h-10 w-full min-w-0 justify-between gap-3 rounded-lg border-[#27303A] bg-[#171C22] px-4 py-2 text-left text-sm font-medium text-[#F3F5F7] hover:bg-[#1E242C] data-placeholder:text-[#6B7A8D] [&_svg]:shrink-0 [&_svg]:text-[#A8B3C2]"
           >
             <SelectValue placeholder="Choose region" />
           </SelectTrigger>
@@ -417,7 +405,7 @@ function SettingsCard({
             alignItemWithTrigger={false}
             side="bottom"
             sideOffset={6}
-            className="max-h-[min(17rem,50dvh)] rounded-lg border-[#27303A] bg-[#11151A] p-1 shadow-sm ring-1 ring-[#27303A]"
+            className="max-h-[min(17rem,50dvh)] rounded-lg border-[#27303A] bg-[#11151A] p-1 ring-1 ring-[#27303A]"
           >
             {regions.map((r) => (
               <SelectItem
@@ -478,7 +466,7 @@ function GoalSetupCard({
     !!goalStart && !!goalEnd && goalEnd.getTime() < goalStart.getTime();
 
   return (
-    <section className="space-y-5 rounded-[16px] border border-[#27303A] bg-[#11151A] p-5 shadow-sm">
+    <section className="space-y-5 rounded-[16px] border border-[#27303A] bg-[#11151A] p-5">
       <p className="text-sm font-medium text-[#F3F5F7]">Goal setup</p>
 
       <Field label="Goal name (optional)">
@@ -530,18 +518,6 @@ function GoalSetupCard({
   );
 }
 
-function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="rounded-[16px] border border-[#27303A] bg-[#11151A] p-5 text-center shadow-sm">
-      <p className="text-2xl font-semibold tabular-nums text-[#F3F5F7] sm:text-3xl">{value}</p>
-      <div className="mt-1.5 flex items-center justify-center gap-1.5 text-xs text-[#A8B3C2]">
-        {icon}
-        <span>{label}</span>
-      </div>
-    </div>
-  );
-}
-
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
@@ -560,25 +536,126 @@ function Row({ k, v }: { k: string; v: string }) {
   );
 }
 
-function LifeGrid({ daysAlive, totalDays }: { daysAlive: number; totalDays: number }) {
+function LifeGrid({
+  daysAlive,
+  totalDays,
+  stats,
+}: {
+  daysAlive: number;
+  totalDays: number;
+  stats: NonNullable<ReturnType<typeof calculateLifeStats>>;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [cols, setCols] = useState(0);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => setCols(Math.floor((el.clientWidth + 3) / 11));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const totalWeeks = Math.ceil(totalDays / 7);
   const weeksLived = Math.floor(daysAlive / 7);
+  const totalRows = cols > 0 ? Math.ceil(totalWeeks / cols) : 0;
+
+  const wide = cols >= 56;
+  const boxW = wide ? Math.min(48, cols - 6) : Math.min(24, cols - 4);
+  const boxH = wide ? 8 : 10;
+  const holePad = 1;
+  const holeW = boxW + holePad * 2;
+  const holeH = boxH + holePad * 2;
+  const holeC0 = Math.max(0, Math.floor((cols - holeW) / 2));
+  const holeR0 = Math.max(0, Math.floor((totalRows - holeH) / 2));
+  const boxC0 = holeC0 + holePad;
+  const boxR0 = holeR0 + holePad;
+
+  const canInline = cols > 0 && totalRows >= holeH + 4 && cols >= boxW + 4;
 
   return (
-    <div className="mt-12">
-      <div className="flex flex-wrap gap-[3px]">
-        {Array.from({ length: totalWeeks }, (_, i) => (
+    <div className="mt-12" ref={containerRef}>
+      {cols > 0 && (
+        <>
           <div
-            key={i}
-            className={`h-2 w-2 rounded-full ${i < weeksLived ? "bg-[#6366F1]" : "bg-[#27303A]"}`}
-          />
-        ))}
-      </div>
-      <div className="mt-2 flex justify-between text-xs text-[#6B7A8D]">
-        <span>birth</span>
-        <span className="tabular-nums">{((weeksLived / totalWeeks) * 100).toFixed(1)}% lived</span>
-        <span>end</span>
-      </div>
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${cols}, 8px)`,
+              gap: "3px",
+              justifyContent: "center",
+            }}
+          >
+            {canInline && (
+              <div
+                className="z-10 flex items-center justify-center"
+                style={{
+                  gridColumn: `${boxC0 + 1} / ${boxC0 + boxW + 1}`,
+                  gridRow: `${boxR0 + 1} / ${boxR0 + boxH + 1}`,
+                }}
+              >
+                <div
+                  className={`grid gap-y-2 ${
+                    wide ? "grid-cols-4 gap-x-6" : "grid-cols-2 gap-x-4"
+                  }`}
+                >
+                  <GridStat label="Days lived" value={fmt(stats.daysAlive)} wide={wide} />
+                  <GridStat label="Days remaining" value={fmt(stats.daysRemaining)} wide={wide} />
+                  <GridStat label="Weeks remaining" value={fmt(stats.weeksRemaining)} wide={wide} />
+                  <GridStat label="Years remaining" value={stats.remainingYears.toFixed(1)} wide={wide} />
+                </div>
+              </div>
+            )}
+            {Array.from({ length: totalWeeks }, (_, i) => {
+              const r = Math.floor(i / cols);
+              const c = i % cols;
+              if (
+                canInline &&
+                r >= holeR0 && r < holeR0 + holeH &&
+                c >= holeC0 && c < holeC0 + holeW
+              ) return null;
+              return (
+                <div
+                  key={i}
+                  style={{ gridRow: r + 1, gridColumn: c + 1 }}
+                  className={`h-2 w-2 rounded-full ${
+                    i < weeksLived ? "bg-[#6366F1]" : "bg-[#27303A]"
+                  }`}
+                />
+              );
+            })}
+          </div>
+          <div className="mt-2 flex justify-between text-xs text-[#6B7A8D]">
+            <span>birth</span>
+            <span className="tabular-nums">
+              {((weeksLived / totalWeeks) * 100).toFixed(1)}% lived
+            </span>
+            <span>end</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function GridStat({
+  label,
+  value,
+  wide,
+}: {
+  label: string;
+  value: string;
+  wide: boolean;
+}) {
+  return (
+    <div className="text-center">
+      <p className={`font-semibold tabular-nums text-[#F3F5F7] ${wide ? "text-2xl" : "text-lg"}`}>
+        {value}
+      </p>
+      <p className={`mt-0.5 text-[#A8B3C2] ${wide ? "text-xs" : "text-[10px]"}`}>
+        {label}
+      </p>
     </div>
   );
 }
@@ -609,7 +686,7 @@ function GoalTimeline({
   });
 
   return (
-    <section className="rounded-[16px] border border-[#27303A] bg-[#11151A] p-5 shadow-sm">
+    <section className="rounded-[16px] border border-[#27303A] bg-[#11151A] p-5">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-[#F3F5F7]">
